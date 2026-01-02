@@ -1,45 +1,60 @@
-import Link from "next/link";
-import ButtonSignin from "@/components/ButtonSignin";
+import { getFeaturedTools } from "@/libs/toolsData";
+import { siteConfig } from "@/libs/siteConfig";
+import ToolCard from "@/components/ToolCard";
 
-export default function Page() {
+export default function Home() {
+  const tools = getFeaturedTools();
+
   return (
-    <>
-      <header className="p-4 flex justify-end max-w-7xl mx-auto">
-        <ButtonSignin text="Login" />
-      </header>
-      <main>
-        <section className="flex flex-col items-center justify-center text-center gap-12 px-8 py-24">
-          <h1 className="text-3xl font-extrabold">Ship Fast ⚡️</h1>
-
-          <p className="text-lg opacity-80">
-            The start of your new startup... What are you gonna build?
+    <div className="min-h-screen bg-base-100">
+      <section className="bg-base-200 py-20 px-6">
+        <div className="max-w-7xl mx-auto text-center">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            {siteConfig.brand.logo} {siteConfig.name}
+          </h1>
+          <p className="text-xl md:text-2xl opacity-80 mb-4">
+            {siteConfig.brand.tagline}
           </p>
+          <p className="text-lg opacity-70 max-w-2xl mx-auto">
+            {siteConfig.description}
+          </p>
+        </div>
+      </section>
 
-          <a
-            className="btn btn-primary"
-            href="https://shipfa.st/docs"
-            target="_blank"
-          >
-            Documentation & tutorials{" "}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-5 h-5"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </a>
+      <section className="py-12 px-6">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl font-bold mb-8 text-center">
+            所有工具
+          </h2>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {tools.map((tool) => (
+              <ToolCard key={tool.id} tool={tool} />
+            ))}
+          </div>
+        </div>
+      </section>
 
-          <Link href="/blog" className="link link-hover text-sm">
-            Fancy a blog?
-          </Link>
-        </section>
-      </main>
-    </>
+      <section className="py-16 px-6 bg-base-200">
+        <div className="max-w-4xl mx-auto card bg-base-100 shadow-xl p-8 md:p-12">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-4">
+              需要更專業的服務?
+            </h2>
+            <p className="text-lg opacity-70 mb-8">
+              免費工具適合快速處理,專業版提供更高準確度和更多功能
+            </p>
+            <div className="flex flex-col md:flex-row gap-4 justify-center">
+              <a href={siteConfig.products.transcript.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                試用 Transcript AI
+              </a>
+              <a href={siteConfig.products.liveTranslate.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                試用 Live Translate
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

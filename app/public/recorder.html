@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Audio Recorder - 分頁音訊錄製</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      padding: 20px;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .hint-text {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+
+    .hint-text.recording {
+      color: #ef4444;
+    }
+
+    /* Waveform Visualizer */
+    .visualizer-container {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #waveform {
+      width: 100%;
+      height: 80px;
+    }
+
+    /* Timer */
+    .timer {
+      text-align: center;
+      font-size: 48px;
+      font-weight: 300;
+      font-family: 'SF Mono', 'Monaco', monospace;
+      margin-bottom: 24px;
+      letter-spacing: 2px;
+    }
+
+    /* Status */
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #6b7280;
+    }
+
+    .status-dot.recording {
+      background: #ef4444;
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.ready {
+      background: #22c55e;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    /* Buttons */
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 14px 28px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Icon SVGs */
+    .icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Recordings List */
+    .recordings {
+      margin-top: 32px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 24px;
+    }
+
+    .recordings h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .recording-item {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .recording-info {
+      flex: 1;
+    }
+
+    .recording-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .recording-meta {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .recording-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .recording-actions button {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+
+    /* Instructions */
+    .instructions {
+      margin-top: 24px;
+      padding: 16px;
+      background: rgba(99, 102, 241, 0.1);
+      border-radius: 12px;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .instructions h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #a5b4fc;
+    }
+
+    .instructions ol {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      padding-left: 20px;
+      line-height: 1.8;
+    }
+
+    /* Limitations */
+    .limitations {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 12px;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .limitations h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #fca5a5;
+    }
+
+    .limitations ul {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      padding-left: 20px;
+      line-height: 1.8;
+      list-style-type: none;
+    }
+
+    .limitations li {
+      margin-bottom: 4px;
+    }
+
+    .limitations li::before {
+      content: "•";
+      color: #fca5a5;
+      margin-right: 8px;
+    }
+
+    .browser-support {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      flex-wrap: wrap;
+    }
+
+    .browser-support span {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .browser-support .supported {
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .browser-support .not-supported {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    /* Browser Warning */
+    .browser-warning {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: center;
+      display: none;
+    }
+
+    .browser-warning.show {
+      display: block;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 20px;
+      font-size: 14px;
+    }
+
+    /* Format Selector */
+    .format-selector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .format-selector label {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .format-selector select {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* Normalize Option */
+    .normalize-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .option-description {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 6px;
+      margin-bottom: 0;
+      text-align: center;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      user-select: none;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      display: none;
+    }
+
+    .checkmark {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.2);
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .checkbox-label input[type="checkbox"]:checked + .checkmark {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-color: transparent;
+    }
+
+    .checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .checkbox-label:hover .checkmark {
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Gain Control */
+    .gain-control {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+    }
+
+    .gain-control > label {
+      display: block;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    #gainValue {
+      color: #8b5cf6;
+      font-weight: 600;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      min-width: 35px;
+    }
+
+    #gainSlider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    #gainSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+      transition: transform 0.2s;
+    }
+
+    #gainSlider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+
+    #gainSlider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      cursor: pointer;
+      border: none;
+    }
+
+    .gain-hint {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      text-align: center;
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+
+    .gain-control.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎙️ Tab Audio Recorder</h1>
+    <p class="subtitle">錄製 Chrome 分頁中的音訊</p>
+    <p class="hint-text" id="idleMessage">點擊「開始錄音」以擷取分頁音訊</p>
+
+    <div class="browser-warning" id="browserWarning">
+      ⚠️ 此功能僅支援 Chrome / Edge 瀏覽器
+    </div>
+
+    <div class="visualizer-container">
+      <canvas id="waveform"></canvas>
+    </div>
+
+    <div class="timer" id="timer">00:00:00</div>
+
+    <div class="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">準備就緒</span>
+    </div>
+
+    <div class="format-selector">
+      <label for="formatSelect">輸出格式：</label>
+      <select id="formatSelect">
+        <option value="audio/wav">WAV (無損，適合後製)</option>
+        <option value="audio/mp3" selected>MP3 (檔案小，適合分享)</option>
+      </select>
+    </div>
+
+    <div class="normalize-option">
+      <label class="checkbox-label">
+        <input type="checkbox" id="normalizeCheckbox">
+        <span class="checkmark"></span>
+        自動調整音量
+      </label>
+      <p class="option-description">自動偵測並放大過小的聲音，讓整體音量一致、清晰</p>
+    </div>
+
+    <div class="gain-control" id="gainControl">
+      <label for="gainSlider">手動調整音量：<span id="gainValue">1.0x</span></label>
+      <div class="slider-container">
+        <span class="slider-label">原始</span>
+        <input type="range" id="gainSlider" min="1" max="3" step="0.1" value="1">
+        <span class="slider-label">3倍大</span>
+      </div>
+      <p class="gain-hint">💡 原始音量太小？拉到 1.5x ~ 2.0x 試試，過高可能爆音失真</p>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-primary" id="startBtn">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+        </svg>
+        開始錄音
+      </button>
+      <button class="btn-danger" id="stopBtn" disabled>
+        <svg class="icon" fill="currentColor" viewBox="0 0 24 24">
+          <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+        </svg>
+        停止
+      </button>
+    </div>
+
+    <div class="instructions">
+      <h3>📋 使用說明</h3>
+      <ol>
+        <li>點擊「開始錄音」按鈕</li>
+        <li>在彈出視窗中選擇「Chrome 分頁」</li>
+        <li>選擇要錄製的分頁，並<strong>勾選「分享分頁音訊」</strong></li>
+        <li>點擊「分享」開始錄製</li>
+        <li>完成後點擊「停止」下載音訊檔</li>
+      </ol>
+    </div>
+
+    <div class="limitations">
+      <h3>⚠️ 使用限制</h3>
+      <ul>
+        <li>錄音中<strong>可以切換分頁</strong>，不需停留在此頁面</li>
+        <li>被錄的分頁<strong>要保持播放</strong>，不能關閉或靜音</li>
+        <li>瀏覽器<strong>不能最小化</strong>，最小化可能中斷錄音</li>
+        <li>建議單次錄音<strong>60 分鐘內</strong>較穩定</li>
+      </ul>
+      <div class="browser-support">
+        <span class="supported">✓ Chrome</span>
+        <span class="supported">✓ Edge</span>
+        <span class="not-supported">✗ Safari</span>
+        <span class="not-supported">✗ Firefox</span>
+      </div>
+    </div>
+
+    <div class="recordings" id="recordingsSection" style="display: none;">
+      <h2>📁 錄音檔案</h2>
+      <div id="recordingsList"></div>
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const timer = document.getElementById('timer');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const waveformCanvas = document.getElementById('waveform');
+    const idleMessage = document.getElementById('idleMessage');
+    const browserWarning = document.getElementById('browserWarning');
+    const formatSelect = document.getElementById('formatSelect');
+    const normalizeCheckbox = document.getElementById('normalizeCheckbox');
+    const gainSlider = document.getElementById('gainSlider');
+    const gainValue = document.getElementById('gainValue');
+    const gainControl = document.getElementById('gainControl');
+    const recordingsSection = document.getElementById('recordingsSection');
+    const recordingsList = document.getElementById('recordingsList');
+
+    // State
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let stream = null;
+    let timerInterval = null;
+    let startTime = null;
+    let audioContext = null;
+    let analyser = null;
+    let animationId = null;
+    let recordings = [];
+
+    // Canvas setup
+    const canvasCtx = waveformCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const container = waveformCanvas.parentElement;
+      waveformCanvas.width = container.clientWidth - 40;
+      waveformCanvas.height = 80;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Check browser support
+    function checkBrowserSupport() {
+      const isChrome = /Chrome/.test(navigator.userAgent) && !/Edg/.test(navigator.userAgent);
+      const isEdge = /Edg/.test(navigator.userAgent);
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        browserWarning.classList.add('show');
+        browserWarning.textContent = '⚠️ 您的瀏覽器不支援螢幕分享功能';
+        startBtn.disabled = true;
+        return false;
+      }
+      
+      if (!isChrome && !isEdge) {
+        browserWarning.classList.add('show');
+        return true; // Still allow trying
+      }
+      
+      return true;
+    }
+
+    checkBrowserSupport();
+
+    // Format time
+    function formatTime(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      
+      return [hours, minutes, seconds]
+        .map(v => v.toString().padStart(2, '0'))
+        .join(':');
+    }
+
+    // Update timer
+    function updateTimer() {
+      if (startTime) {
+        const elapsed = Date.now() - startTime;
+        timer.textContent = formatTime(elapsed);
+      }
+    }
+
+    // Draw waveform
+    function drawWaveform() {
+      if (!analyser) return;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteTimeDomainData(dataArray);
+
+      canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      canvasCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+
+      canvasCtx.lineWidth = 2;
+      canvasCtx.strokeStyle = '#8b5cf6';
+      canvasCtx.beginPath();
+
+      const sliceWidth = waveformCanvas.width / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * waveformCanvas.height) / 2;
+
+        if (i === 0) {
+          canvasCtx.moveTo(x, y);
+        } else {
+          canvasCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      canvasCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+      canvasCtx.stroke();
+
+      // Draw gradient glow
+      const gradient = canvasCtx.createLinearGradient(0, 0, 0, waveformCanvas.height);
+      gradient.addColorStop(0, 'rgba(139, 92, 246, 0.1)');
+      gradient.addColorStop(0.5, 'rgba(139, 92, 246, 0.05)');
+      gradient.addColorStop(1, 'rgba(139, 92, 246, 0.1)');
+      canvasCtx.fillStyle = gradient;
+      canvasCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+
+      animationId = requestAnimationFrame(drawWaveform);
+    }
+
+    // Start recording
+    async function startRecording() {
+      try {
+        // Request display media with audio
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true, // Required to trigger the picker
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            sampleRate: 44100
+          }
+        });
+
+        // Check if audio track exists
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          alert('未偵測到音訊！請確保勾選「分享分頁音訊」選項。');
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        // Stop video track to save resources
+        const videoTracks = stream.getVideoTracks();
+        videoTracks.forEach(track => track.stop());
+
+        // Create audio-only stream
+        const audioStream = new MediaStream(audioTracks);
+
+        // Setup audio context for visualization
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(audioStream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+
+        // Setup MediaRecorder
+        const mimeType = formatSelect.value;
+        const options = { mimeType };
+        
+        try {
+          mediaRecorder = new MediaRecorder(audioStream, options);
+        } catch (e) {
+          // Fallback to default
+          mediaRecorder = new MediaRecorder(audioStream);
+        }
+
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          const duration = Date.now() - startTime;
+          saveRecording(blob, duration);
+        };
+
+        // Handle stream ending (user clicks stop sharing)
+        audioTracks[0].onended = () => {
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            stopRecording();
+          }
+        };
+
+        // Start recording
+        mediaRecorder.start(1000); // Collect data every second
+        startTime = Date.now();
+
+        // Update UI
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusDot.classList.add('recording');
+        statusText.textContent = '錄音中...';
+        idleMessage.textContent = '🔴 正在錄製音訊...';
+        idleMessage.classList.add('recording');
+        waveformCanvas.style.display = 'block';
+
+        // Start timer and visualization
+        timerInterval = setInterval(updateTimer, 100);
+        drawWaveform();
+
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        
+        if (error.name === 'NotAllowedError') {
+          alert('錄音被取消或拒絕授權');
+        } else {
+          alert('無法開始錄音：' + error.message);
+        }
+      }
+    }
+
+    // Stop recording
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+
+      // Stop all tracks
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+
+      // Stop timer and visualization
+      clearInterval(timerInterval);
+      cancelAnimationFrame(animationId);
+
+      // Close audio context
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+        analyser = null;
+      }
+
+      // Reset UI
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      statusDot.classList.remove('recording');
+      statusDot.classList.add('ready');
+      statusText.textContent = '錄音完成！';
+      idleMessage.textContent = '點擊「開始錄音」以擷取分頁音訊';
+      idleMessage.classList.remove('recording');
+      
+      // Clear canvas
+      canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      canvasCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+    }
+
+    // Convert AudioBuffer to WAV
+    function audioBufferToWav(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const format = 1; // PCM
+      const bitDepth = 16;
+      
+      const bytesPerSample = bitDepth / 8;
+      const blockAlign = numChannels * bytesPerSample;
+      
+      // Interleave channels
+      let interleaved;
+      if (numChannels === 2) {
+        const left = buffer.getChannelData(0);
+        const right = buffer.getChannelData(1);
+        interleaved = new Float32Array(left.length * 2);
+        for (let i = 0; i < left.length; i++) {
+          interleaved[i * 2] = left[i];
+          interleaved[i * 2 + 1] = right[i];
+        }
+      } else {
+        interleaved = buffer.getChannelData(0);
+      }
+      
+      const dataLength = interleaved.length * bytesPerSample;
+      const headerLength = 44;
+      const totalLength = headerLength + dataLength;
+      
+      const arrayBuffer = new ArrayBuffer(totalLength);
+      const view = new DataView(arrayBuffer);
+      
+      // WAV header
+      const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      };
+      
+      writeString(0, 'RIFF');
+      view.setUint32(4, totalLength - 8, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true); // fmt chunk size
+      view.setUint16(20, format, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * blockAlign, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitDepth, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataLength, true);
+      
+      // Convert to 16-bit PCM
+      let offset = 44;
+      for (let i = 0; i < interleaved.length; i++) {
+        const sample = Math.max(-1, Math.min(1, interleaved[i]));
+        const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, int16, true);
+        offset += 2;
+      }
+      
+      return new Blob([arrayBuffer], { type: 'audio/wav' });
+    }
+
+    // Normalize audio buffer to standard volume
+    function normalizeAudio(audioBuffer) {
+      // Find maximum amplitude across all channels
+      let maxAmplitude = 0;
+      
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const channelData = audioBuffer.getChannelData(channel);
+        for (let i = 0; i < channelData.length; i++) {
+          const absValue = Math.abs(channelData[i]);
+          if (absValue > maxAmplitude) {
+            maxAmplitude = absValue;
+          }
+        }
+      }
+      
+      // If audio is silent or already normalized, return as-is
+      if (maxAmplitude === 0 || maxAmplitude >= 0.95) {
+        console.log('Audio already normalized or silent, skipping normalization');
+        return audioBuffer;
+      }
+      
+      // Calculate gain to normalize to 0.95 (leaving headroom to avoid clipping)
+      const targetPeak = 0.95;
+      const gain = targetPeak / maxAmplitude;
+      
+      console.log(`Normalizing audio: max amplitude ${maxAmplitude.toFixed(4)}, applying gain ${gain.toFixed(2)}x`);
+      
+      // Apply gain to all channels
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const channelData = audioBuffer.getChannelData(channel);
+        for (let i = 0; i < channelData.length; i++) {
+          channelData[i] *= gain;
+        }
+      }
+      
+      return audioBuffer;
+    }
+
+    // Apply fixed gain to audio buffer (with soft clipping to prevent distortion)
+    function applyGain(audioBuffer, gain) {
+      if (gain === 1.0) {
+        return audioBuffer;
+      }
+      
+      console.log(`Applying ${gain.toFixed(1)}x gain to audio`);
+      
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const channelData = audioBuffer.getChannelData(channel);
+        for (let i = 0; i < channelData.length; i++) {
+          let sample = channelData[i] * gain;
+          
+          // Soft clipping using tanh to prevent harsh distortion
+          if (sample > 1.0 || sample < -1.0) {
+            sample = Math.tanh(sample);
+          }
+          
+          channelData[i] = sample;
+        }
+      }
+      
+      return audioBuffer;
+    }
+
+    // Convert WebM blob to WAV
+    async function convertToWav(blob, shouldNormalize = false, manualGain = 1.0) {
+      const arrayBuffer = await blob.arrayBuffer();
+      const tempAudioContext = new AudioContext();
+      
+      try {
+        let audioBuffer = await tempAudioContext.decodeAudioData(arrayBuffer);
+        
+        // Apply normalization OR manual gain (not both)
+        if (shouldNormalize) {
+          statusText.textContent = '正規化音量中...';
+          audioBuffer = normalizeAudio(audioBuffer);
+        } else if (manualGain !== 1.0) {
+          statusText.textContent = `套用 ${manualGain.toFixed(1)}x 增益中...`;
+          audioBuffer = applyGain(audioBuffer, manualGain);
+        }
+        
+        const wavBlob = audioBufferToWav(audioBuffer);
+        tempAudioContext.close();
+        return wavBlob;
+      } catch (error) {
+        console.error('Error converting to WAV:', error);
+        tempAudioContext.close();
+        throw error;
+      }
+    }
+
+    // Process audio (normalize or apply gain)
+    async function processAudio(blob, shouldNormalize, manualGain) {
+      const arrayBuffer = await blob.arrayBuffer();
+      const tempAudioContext = new AudioContext();
+      
+      try {
+        let audioBuffer = await tempAudioContext.decodeAudioData(arrayBuffer);
+        
+        if (shouldNormalize) {
+          audioBuffer = normalizeAudio(audioBuffer);
+        } else if (manualGain !== 1.0) {
+          audioBuffer = applyGain(audioBuffer, manualGain);
+        }
+        
+        const wavBlob = audioBufferToWav(audioBuffer);
+        tempAudioContext.close();
+        return { blob: wavBlob, format: 'wav' };
+      } catch (error) {
+        console.error('Error processing audio:', error);
+        tempAudioContext.close();
+        throw error;
+      }
+    }
+
+    // Convert AudioBuffer to MP3 using lamejs
+    function audioBufferToMp3(audioBuffer) {
+      const numChannels = audioBuffer.numberOfChannels;
+      const sampleRate = audioBuffer.sampleRate;
+      const kbps = 192; // MP3 bitrate
+      
+      // Get channel data
+      const left = audioBuffer.getChannelData(0);
+      const right = numChannels > 1 ? audioBuffer.getChannelData(1) : left;
+      
+      // Convert Float32 to Int16
+      const leftInt = new Int16Array(left.length);
+      const rightInt = new Int16Array(right.length);
+      
+      for (let i = 0; i < left.length; i++) {
+        leftInt[i] = Math.max(-32768, Math.min(32767, Math.round(left[i] * 32767)));
+        rightInt[i] = Math.max(-32768, Math.min(32767, Math.round(right[i] * 32767)));
+      }
+      
+      // Create MP3 encoder
+      const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, kbps);
+      const mp3Data = [];
+      
+      // Encode in chunks
+      const sampleBlockSize = 1152;
+      for (let i = 0; i < leftInt.length; i += sampleBlockSize) {
+        const leftChunk = leftInt.subarray(i, i + sampleBlockSize);
+        const rightChunk = rightInt.subarray(i, i + sampleBlockSize);
+        
+        let mp3buf;
+        if (numChannels === 1) {
+          mp3buf = mp3Encoder.encodeBuffer(leftChunk);
+        } else {
+          mp3buf = mp3Encoder.encodeBuffer(leftChunk, rightChunk);
+        }
+        
+        if (mp3buf.length > 0) {
+          mp3Data.push(mp3buf);
+        }
+      }
+      
+      // Flush remaining data
+      const mp3buf = mp3Encoder.flush();
+      if (mp3buf.length > 0) {
+        mp3Data.push(mp3buf);
+      }
+      
+      // Combine all chunks
+      const totalLength = mp3Data.reduce((acc, buf) => acc + buf.length, 0);
+      const mp3Array = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buf of mp3Data) {
+        mp3Array.set(buf, offset);
+        offset += buf.length;
+      }
+      
+      return new Blob([mp3Array], { type: 'audio/mp3' });
+    }
+
+    // Convert WebM blob to MP3
+    async function convertToMp3(blob, shouldNormalize = false, manualGain = 1.0) {
+      const arrayBuffer = await blob.arrayBuffer();
+      const tempAudioContext = new AudioContext();
+      
+      try {
+        let audioBuffer = await tempAudioContext.decodeAudioData(arrayBuffer);
+        
+        // Apply normalization OR manual gain
+        if (shouldNormalize) {
+          statusText.textContent = '正規化音量中...';
+          audioBuffer = normalizeAudio(audioBuffer);
+        } else if (manualGain !== 1.0) {
+          statusText.textContent = `套用 ${manualGain.toFixed(1)}x 增益中...`;
+          audioBuffer = applyGain(audioBuffer, manualGain);
+        }
+        
+        statusText.textContent = '轉換為 MP3 格式中...';
+        const mp3Blob = audioBufferToMp3(audioBuffer);
+        tempAudioContext.close();
+        return mp3Blob;
+      } catch (error) {
+        console.error('Error converting to MP3:', error);
+        tempAudioContext.close();
+        throw error;
+      }
+    }
+
+    // Save recording
+    async function saveRecording(blob, duration) {
+      const timestamp = new Date().toLocaleString('zh-TW');
+      const fileName = `recording_${Date.now()}`;
+      const selectedFormat = formatSelect.value;
+      const shouldNormalize = normalizeCheckbox.checked;
+      const manualGain = parseFloat(gainSlider.value);
+      
+      let finalBlob = blob;
+      let fileExt = 'webm';
+      
+      const needsProcessing = shouldNormalize || manualGain !== 1.0;
+      
+      // Process based on format and settings
+      if (selectedFormat === 'audio/wav') {
+        statusText.textContent = '轉換為 WAV 格式中...';
+        try {
+          finalBlob = await convertToWav(blob, shouldNormalize, manualGain);
+          fileExt = 'wav';
+        } catch (error) {
+          alert('WAV 轉換失敗，將使用 WebM 格式');
+          console.error(error);
+        }
+      } else if (selectedFormat === 'audio/mp3') {
+        statusText.textContent = '轉換為 MP3 格式中...';
+        try {
+          finalBlob = await convertToMp3(blob, shouldNormalize, manualGain);
+          fileExt = 'mp3';
+        } catch (error) {
+          alert('MP3 轉換失敗，將使用 WebM 格式');
+          console.error(error);
+        }
+      } else if (needsProcessing) {
+        // WebM format but needs processing - convert to WAV
+        statusText.textContent = '處理音訊中...';
+        try {
+          const result = await processAudio(blob, shouldNormalize, manualGain);
+          finalBlob = result.blob;
+          fileExt = result.format;
+        } catch (error) {
+          console.error('Processing failed, using original:', error);
+        }
+      }
+      
+      const recording = {
+        id: Date.now(),
+        name: `錄音 ${recordings.length + 1}`,
+        timestamp,
+        duration: formatTime(duration),
+        blob: finalBlob,
+        fileName: `${fileName}.${fileExt}`
+      };
+      
+      recordings.unshift(recording);
+      renderRecordings();
+      statusText.textContent = '錄音完成！';
+    }
+
+    // Render recordings list
+    function renderRecordings() {
+      if (recordings.length === 0) {
+        recordingsSection.style.display = 'none';
+        return;
+      }
+
+      recordingsSection.style.display = 'block';
+      recordingsList.innerHTML = recordings.map(rec => `
+        <div class="recording-item" data-id="${rec.id}">
+          <div class="recording-info">
+            <div class="recording-name">${rec.name}</div>
+            <div class="recording-meta">${rec.timestamp} · ${rec.duration}</div>
+          </div>
+          <div class="recording-actions">
+            <button class="btn-secondary btn-play" onclick="playRecording(${rec.id})">
+              ▶️ 播放
+            </button>
+            <button class="btn-secondary btn-stop" onclick="stopPlayback(${rec.id})" style="display: none;">
+              ⏹️ 停止
+            </button>
+            <button class="btn-success" onclick="downloadRecording(${rec.id})">
+              ⬇️ 下載
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Store current audio element
+    let currentAudio = null;
+    let currentPlayingId = null;
+
+    // Play recording
+    function playRecording(id) {
+      // Stop any currently playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        updatePlayButton(currentPlayingId, false);
+      }
+
+      const recording = recordings.find(r => r.id === id);
+      if (recording) {
+        const url = URL.createObjectURL(recording.blob);
+        currentAudio = new Audio(url);
+        currentPlayingId = id;
+        
+        // Update button to show stop
+        updatePlayButton(id, true);
+        
+        // When audio ends, reset button
+        currentAudio.onended = () => {
+          updatePlayButton(id, false);
+          currentAudio = null;
+          currentPlayingId = null;
+        };
+        
+        currentAudio.play();
+      }
+    }
+
+    // Stop playback
+    function stopPlayback(id) {
+      if (currentAudio && currentPlayingId === id) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        updatePlayButton(id, false);
+        currentAudio = null;
+        currentPlayingId = null;
+      }
+    }
+
+    // Update play/stop button visibility
+    function updatePlayButton(id, isPlaying) {
+      const item = document.querySelector(`.recording-item[data-id="${id}"]`);
+      if (item) {
+        const playBtn = item.querySelector('.btn-play');
+        const stopBtn = item.querySelector('.btn-stop');
+        if (playBtn && stopBtn) {
+          playBtn.style.display = isPlaying ? 'none' : 'inline-flex';
+          stopBtn.style.display = isPlaying ? 'inline-flex' : 'none';
+        }
+      }
+    }
+
+    // Download recording
+    function downloadRecording(id) {
+      const recording = recordings.find(r => r.id === id);
+      if (recording) {
+        const url = URL.createObjectURL(recording.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = recording.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    // Event listeners
+    startBtn.addEventListener('click', startRecording);
+    stopBtn.addEventListener('click', stopRecording);
+
+    // Gain slider update
+    gainSlider.addEventListener('input', () => {
+      gainValue.textContent = `${parseFloat(gainSlider.value).toFixed(1)}x`;
+    });
+
+    // Toggle gain control when normalize is checked
+    normalizeCheckbox.addEventListener('change', () => {
+      if (normalizeCheckbox.checked) {
+        gainControl.classList.add('disabled');
+      } else {
+        gainControl.classList.remove('disabled');
+      }
+    });
+
+    // Expose functions to window for inline onclick handlers
+    window.playRecording = playRecording;
+    window.stopPlayback = stopPlayback;
+    window.downloadRecording = downloadRecording;
+  </script>
+</body>
+</html>
