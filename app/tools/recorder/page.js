@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 export default function RecorderPage() {
   return (
@@ -12,8 +13,7 @@ export default function RecorderPage() {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      color: '#fff',
-      padding: '20px'
+      color: '#fff'
     }}>
       <div style={{
         background: 'rgba(255, 255, 255, 0.1)',
@@ -42,7 +42,7 @@ export default function RecorderPage() {
         </div>
 
         <div style={{ marginTop: '24px', textAlign: 'center' }}>
-          <a 
+          <Link 
             href="/"
             style={{
               display: 'inline-block',
@@ -55,7 +55,7 @@ export default function RecorderPage() {
             }}
           >
             ← 返回首頁
-          </a>
+          </Link>
         </div>
       </div>
     </div>
